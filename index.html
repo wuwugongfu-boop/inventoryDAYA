@@ -63,6 +63,47 @@
   .empty{color:var(--muted); font-size:14px; padding:16px 0;}
   .soon-row td{border-top:1px solid #F4C0C0;}
   footer{margin-top:30px; font-size:12px; color:var(--hint); text-align:center;}
+
+  @media (max-width:640px){
+    .wrap{padding:18px 12px 48px;}
+    header{gap:12px;}
+    header h1{font-size:16px;}
+    header p{font-size:11px;}
+    .updated{display:none;}
+    .cards{grid-template-columns:repeat(2,1fr); gap:8px;}
+    .card .val{font-size:22px;}
+    .soon-filter{gap:10px 14px;}
+    .soon-filter label{font-size:13px;}
+
+    /* 即將到期清單：手機改成卡片 */
+    .soon-table, .soon-table tbody, .soon-table tr, .soon-table td{display:block; width:100%;}
+    .soon-table tr:first-child{display:none;}            /* 隱藏表頭 */
+    .soon-table tr.soon-row{
+      background:#fff; border:1px solid #F4C0C0; border-radius:10px;
+      padding:10px 12px; margin-bottom:10px;
+    }
+    .soon-table td{
+      border:none !important; padding:3px 0 !important;
+      display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+      text-align:left !important; font-size:14px;
+    }
+    .soon-table td::before{
+      content:attr(data-label); color:#993C1D; font-size:12px;
+      font-weight:500; flex:0 0 auto; min-width:42px;
+    }
+    .soon-table td[data-label="品名"]{
+      flex-direction:column; align-items:flex-start; gap:2px;
+      border-top:1px solid #F4C0C0 !important; border-bottom:1px solid #F4C0C0 !important;
+      padding:6px 0 !important; margin:2px 0;
+    }
+    .soon-table td[data-label="品名"]{font-weight:500; font-size:15px;}
+    .soon-table td[data-label="狀態"]{font-size:15px;}
+
+    /* 下方品號分組表格：手機可橫向捲動，避免擠壓 */
+    .item-card{overflow-x:auto; padding:12px 14px;}
+    .item-card table{min-width:520px;}
+    .item-head{flex-direction:column; gap:2px;}
+  }
 </style>
 </head>
 <body>
@@ -214,7 +255,7 @@ function renderSoon(){
                .filter(inRange).sort(function(a,b){return a.d-b.d;});
   if(!list.length){ soon.innerHTML='<p style="margin:0;font-size:13px;color:#A32D2D;">所選範圍內目前沒有品項。</p>'; return; }
 
-  var h='<table><tr style="color:#993C1D;text-align:left;">'
+  var h='<table class="soon-table"><tr style="color:#993C1D;text-align:left;">'
     +'<th style="font-weight:500;padding:5px 6px;">品號</th>'
     +'<th style="font-weight:500;padding:5px 6px;">品名</th>'
     +'<th style="font-weight:500;padding:5px 6px;">倉別</th>'
@@ -226,13 +267,13 @@ function renderSoon(){
     var tx=it.m<=1?"var(--red-tx)":(it.m<=3?"var(--amber-tx)":"var(--green-tx)");
     var dtxt = it.d<0 ? overdueText(it.d) : ("剩 "+it.d+" 天");
     h+='<tr class="soon-row">'
-      +'<td class="mono" style="color:#712B13;padding:7px 6px;">'+it.code+'</td>'
-      +'<td style="color:#4A1B0C;padding:7px 6px;">'+it.name+'<span style="color:#993C1D;font-size:12px;">　'+(it.spec||"")+'</span></td>'
-      +'<td style="color:#712B13;padding:7px 6px;">'+it.wh+'</td>'
-      +'<td class="mono" style="color:#712B13;padding:7px 6px;">'+locText(it)+'</td>'
-      +'<td style="text-align:right;color:#4A1B0C;padding:7px 6px;">'+it.qty.toLocaleString()+'</td>'
-      +'<td style="color:#4A1B0C;padding:7px 6px;">'+it.exp+'</td>'
-      +'<td style="text-align:right;font-weight:700;color:'+tx+';padding:7px 6px;">'+dtxt+'</td></tr>';
+      +'<td data-label="品號" class="mono" style="color:#712B13;padding:7px 6px;">'+it.code+'</td>'
+      +'<td data-label="品名" style="color:#4A1B0C;padding:7px 6px;">'+it.name+'<span style="color:#993C1D;font-size:12px;">　'+(it.spec||"")+'</span></td>'
+      +'<td data-label="倉別" style="color:#712B13;padding:7px 6px;">'+it.wh+'</td>'
+      +'<td data-label="儲位" class="mono" style="color:#712B13;padding:7px 6px;">'+locText(it)+'</td>'
+      +'<td data-label="數量" style="text-align:right;color:#4A1B0C;padding:7px 6px;">'+it.qty.toLocaleString()+'</td>'
+      +'<td data-label="到期日" style="color:#4A1B0C;padding:7px 6px;">'+it.exp+'</td>'
+      +'<td data-label="狀態" style="text-align:right;font-weight:700;color:'+tx+';padding:7px 6px;">'+dtxt+'</td></tr>';
   });
   soon.innerHTML=h+'</table>';
 }
