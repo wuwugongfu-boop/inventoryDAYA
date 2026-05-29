@@ -87,9 +87,10 @@
   <div class="soon-box">
     <h2>⚠ 即將到期清單（依到期日排序）</h2>
     <div class="soon-filter">
-      <label><input type="checkbox" id="f-red" checked> 剩 ≤ 1 個月</label>
-      <label><input type="checkbox" id="f-amber"> 剩 ≤ 3 個月</label>
-      <label><input type="checkbox" id="f-green"> 剩 ≤ 6 個月</label>
+      <label><input type="checkbox" id="f-over" checked> 已過期</label>
+      <label><input type="checkbox" id="f-red"> 未過期且剩 ≤ 1 個月</label>
+      <label><input type="checkbox" id="f-amber"> 超過 1 個月且剩 ≤ 3 個月</label>
+      <label><input type="checkbox" id="f-green"> 超過 3 個月且剩 ≤ 6 個月</label>
     </div>
     <div id="soon"></div>
   </div>
@@ -179,6 +180,7 @@ function boot(data){
   document.getElementById("q").addEventListener("input",render);
   whSel.addEventListener("change",render);
   document.getElementById("lv").addEventListener("change",render);
+  document.getElementById("f-over").addEventListener("change",renderSoon);
   document.getElementById("f-red").addEventListener("change",renderSoon);
   document.getElementById("f-amber").addEventListener("change",renderSoon);
   document.getElementById("f-green").addEventListener("change",renderSoon);
@@ -194,15 +196,23 @@ function overdueText(d){
 
 function renderSoon(){
   var data=window.__DATA__, soon=document.getElementById("soon");
+  var fOver=document.getElementById("f-over").checked;
   var fRed=document.getElementById("f-red").checked;
   var fAmber=document.getElementById("f-amber").checked;
   var fGreen=document.getElementById("f-green").checked;
-  var maxM = fGreen?6:(fAmber?3:(fRed?1:0));
-  if(maxM===0){ soon.innerHTML='<p style="margin:0;font-size:13px;color:#A32D2D;">請至少勾選一個效期範圍。</p>'; return; }
+  if(!fOver && !fRed && !fAmber && !fGreen){ soon.innerHTML='<p style="margin:0;font-size:13px;color:#A32D2D;">請至少勾選一個範圍。</p>'; return; }
+
+  function inRange(r){
+    if(r.d<0) return fOver;                 // 已過期
+    if(r.m<=1) return fRed;                 // 未過期且剩≤1個月
+    if(r.m<=3) return fAmber;               // 超過1個月且剩≤3個月
+    if(r.m<=6) return fGreen;               // 超過3個月且剩≤6個月
+    return false;                           // 超過6個月不列入
+  }
 
   var list=data.filter(hasExp).map(function(r){return Object.assign({},r,{m:monthsLeft(r.exp),d:daysLeft(r.exp)});})
-               .filter(function(r){return r.m<=maxM;}).sort(function(a,b){return a.d-b.d;});
-  if(!list.length){ soon.innerHTML='<p style="margin:0;font-size:13px;color:#A32D2D;">所選範圍內目前沒有即期品項。</p>'; return; }
+               .filter(inRange).sort(function(a,b){return a.d-b.d;});
+  if(!list.length){ soon.innerHTML='<p style="margin:0;font-size:13px;color:#A32D2D;">所選範圍內目前沒有品項。</p>'; return; }
 
   var h='<table><tr style="color:#993C1D;text-align:left;">'
     +'<th style="font-weight:500;padding:5px 6px;">品號</th>'
