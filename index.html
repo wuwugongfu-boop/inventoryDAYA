@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>大亞國際行銷 — 庫存效期儀表板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --green:#1D9E75; --green-d:#0F6E56;
@@ -62,6 +63,22 @@
   .b-none{background:var(--surface); color:var(--hint); border:1px solid var(--line);}
   .empty{color:var(--muted); font-size:14px; padding:16px 0;}
   .soon-row td{border-top:1px solid #F4C0C0;}
+  .toolbar{display:flex; flex-wrap:wrap; gap:14px 24px; align-items:center; justify-content:space-between; background:var(--surface); border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:18px;}
+  .toolbar .tool-label{font-size:13px; color:var(--muted); font-weight:500;}
+  .threshold, .export{display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
+  .threshold label{display:flex; align-items:center; gap:5px; font-size:13px; color:var(--text);}
+  .threshold input{width:54px; height:32px; padding:4px 6px; text-align:center;}
+  .dot{display:inline-block; width:10px; height:10px; border-radius:50%;}
+  .dot-red{background:var(--red-bd);} .dot-amber{background:var(--amber-bd);} .dot-green{background:var(--green-bd);}
+  .btn{font-family:inherit; font-size:13px; height:34px; padding:0 14px; border-radius:var(--radius-sm); border:1px solid var(--green); background:var(--green); color:#fff; cursor:pointer; font-weight:500;}
+  .btn:hover{background:var(--green-d); border-color:var(--green-d);}
+  .btn-ghost{background:#fff; color:var(--green-d); border-color:var(--green);}
+  .btn-ghost:hover{background:var(--green-bg);}
+  .btn-link{font-family:inherit; font-size:12px; background:none; border:none; color:var(--muted); cursor:pointer; text-decoration:underline; padding:2px 4px;}
+  .btn-link:hover{color:var(--text);}
+  .item-card th.sortable{cursor:pointer; user-select:none; white-space:nowrap;}
+  .item-card th.sortable:hover{color:var(--green-d);}
+  .item-card th .arr{font-size:10px; color:var(--green); margin-left:2px;}
   footer{margin-top:30px; font-size:12px; color:var(--hint); text-align:center;}
 
   @media (max-width:640px){
@@ -103,6 +120,8 @@
     .item-card{overflow-x:auto; padding:12px 14px;}
     .item-card table{min-width:520px;}
     .item-head{flex-direction:column; gap:2px;}
+    .toolbar{flex-direction:column; align-items:stretch; gap:12px;}
+    .export .btn{flex:1;}
   }
 </style>
 </head>
@@ -120,18 +139,18 @@
   <div class="cards">
     <div class="card c-neutral"><p class="lab">總品項</p><p class="val" id="m-total">0</p></div>
     <div class="card c-neutral"><p class="lab">總數量</p><p class="val" id="m-qty">0</p></div>
-    <div class="card c-red"><p class="lab">剩 ≤ 1 個月</p><p class="val" id="m-red">0</p></div>
-    <div class="card c-amber"><p class="lab">剩 ≤ 3 個月</p><p class="val" id="m-amber">0</p></div>
-    <div class="card c-green"><p class="lab">剩 ≤ 6 個月</p><p class="val" id="m-green">0</p></div>
+    <div class="card c-red"><p class="lab" id="lab-red">剩 ≤ 1 個月</p><p class="val" id="m-red">0</p></div>
+    <div class="card c-amber"><p class="lab" id="lab-amber">剩 ≤ 3 個月</p><p class="val" id="m-amber">0</p></div>
+    <div class="card c-green"><p class="lab" id="lab-green">剩 ≤ 6 個月</p><p class="val" id="m-green">0</p></div>
   </div>
 
   <div class="soon-box">
     <h2>⚠ 即將到期清單（依到期日排序）</h2>
     <div class="soon-filter">
       <label><input type="checkbox" id="f-over" checked> 已過期</label>
-      <label><input type="checkbox" id="f-red"> 未過期且剩 ≤ 1 個月</label>
-      <label><input type="checkbox" id="f-amber"> 超過 1 個月且剩 ≤ 3 個月</label>
-      <label><input type="checkbox" id="f-green"> 超過 3 個月且剩 ≤ 6 個月</label>
+      <label><input type="checkbox" id="f-red"> <span id="lab-f-red">未過期且剩 ≤ 1 個月</span></label>
+      <label><input type="checkbox" id="f-amber"> <span id="lab-f-amber">超過 1 個月且剩 ≤ 3 個月</span></label>
+      <label><input type="checkbox" id="f-green"> <span id="lab-f-green">超過 3 個月且剩 ≤ 6 個月</span></label>
     </div>
     <div id="soon"></div>
   </div>
@@ -141,12 +160,27 @@
     <select id="wh"><option value="">全部倉別</option></select>
     <select id="lv">
       <option value="">全部效期</option>
-      <option value="red">剩 ≤ 1 個月</option>
-      <option value="amber">剩 ≤ 3 個月</option>
-      <option value="green">剩 ≤ 6 個月</option>
-      <option value="ok">6 個月以上</option>
+      <option value="red">剩 ≤ 紅燈門檻</option>
+      <option value="amber">剩 ≤ 黃燈門檻</option>
+      <option value="green">剩 ≤ 綠燈門檻</option>
+      <option value="ok">超過綠燈門檻</option>
       <option value="none">無效期</option>
     </select>
+  </div>
+
+  <div class="toolbar">
+    <div class="threshold">
+      <span class="tool-label">效期門檻（月）：</span>
+      <label><span class="dot dot-red"></span>紅 <input id="th-red" type="number" min="0" step="1" value="1"></label>
+      <label><span class="dot dot-amber"></span>黃 <input id="th-amber" type="number" min="0" step="1" value="3"></label>
+      <label><span class="dot dot-green"></span>綠 <input id="th-green" type="number" min="0" step="1" value="6"></label>
+      <button id="th-reset" class="btn-link" type="button">恢復預設</button>
+    </div>
+    <div class="export">
+      <span class="tool-label">匯出 Excel：</span>
+      <button id="exp-filtered" class="btn" type="button">目前結果</button>
+      <button id="exp-all" class="btn btn-ghost" type="button">全部資料</button>
+    </div>
   </div>
 
   <div id="rows"></div>
@@ -164,6 +198,10 @@
    ========================================================================= */
 var USE_GOOGLE_SHEET = true;
 var SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTK8wPy3m9aCy5XVK6tXKXTaYpGoaW6Ir17yPC1HeHkl7-K-_Mkh0rxydiN1QKhYrBMTkaQI5fj7MiW/pub?gid=838757881&single=true&output=csv";
+
+/* 效期門檻（單位：月）。預設 紅1 / 黃3 / 綠6，畫面上可即時調整 */
+var TH = {red:1, amber:3, green:6};
+var TH_DEFAULT = {red:1, amber:3, green:6};
 
 /* 範例資料。欄位：品號 品名 規格 倉別 主儲位 副儲位 批號 數量 效期(YYYY-MM-DD) */
 var DATA = [
@@ -183,7 +221,35 @@ var today = new Date(); today.setHours(0,0,0,0);
 function hasExp(it){ return it.exp && it.exp.trim()!=="" && !isNaN(new Date(it.exp)); }
 function monthsLeft(exp){ return (new Date(exp)-today)/(1000*60*60*24*30.44); }
 function daysLeft(exp){ return Math.round((new Date(exp)-today)/(1000*60*60*24)); }
-function level(it){ if(!hasExp(it)) return "none"; var m=monthsLeft(it.exp); if(m<=1) return "red"; if(m<=3) return "amber"; if(m<=6) return "green"; return "ok"; }
+
+/* 用日曆方式精確計算兩個日期相差幾年幾月幾日 */
+function ymdDiff(fromD, toD){
+  var a=new Date(fromD), b=new Date(toD);
+  var y=b.getFullYear()-a.getFullYear();
+  var m=b.getMonth()-a.getMonth();
+  var d=b.getDate()-a.getDate();
+  if(d<0){ m-=1; var pm=new Date(b.getFullYear(), b.getMonth(), 0); d+=pm.getDate(); }
+  if(m<0){ y-=1; m+=12; }
+  return {y:y, m:m, d:d};
+}
+/* 把年月日組成中文字串，0 的單位自動省略 */
+function ymdText(diff){
+  var parts=[];
+  if(diff.y>0) parts.push(diff.y+" 年");
+  if(diff.m>0) parts.push(diff.m+" 個月");
+  if(diff.d>0 || parts.length===0) parts.push(diff.d+" 日");
+  return parts.join(" ");
+}
+/* 回傳某品項的剩餘 / 過期文字 */
+function remainText(it){
+  if(!hasExp(it)) return "無效期";
+  var d=daysLeft(it.exp);
+  if(d<0) return "已過期 "+ymdText(ymdDiff(it.exp, today));
+  if(d===0) return "今日到期";
+  return "剩 "+ymdText(ymdDiff(today, it.exp));
+}
+
+function level(it){ if(!hasExp(it)) return "none"; var m=monthsLeft(it.exp); if(m<=TH.red) return "red"; if(m<=TH.amber) return "amber"; if(m<=TH.green) return "green"; return "ok"; }
 function locText(it){ return (it.loc2 && it.loc2.trim()!=="") ? it.loc1+" / "+it.loc2 : (it.loc1||"—"); }
 function lotText(it){ return (it.lot && it.lot.trim()!=="") ? it.lot : "—"; }
 function expText(it){ return hasExp(it) ? it.exp : "無效期"; }
@@ -210,6 +276,59 @@ function parseCSV(text){
   }).filter(function(r){return r.code!=="" && r.name!=="";});
 }
 
+var SORT = {key:null, asc:true};
+
+/* 依目前門檻更新畫面上的文字標籤 */
+function updateLabels(){
+  document.getElementById("lab-red").textContent="剩 ≤ "+TH.red+" 個月";
+  document.getElementById("lab-amber").textContent="剩 ≤ "+TH.amber+" 個月";
+  document.getElementById("lab-green").textContent="剩 ≤ "+TH.green+" 個月";
+  document.getElementById("lab-f-red").textContent="未過期且剩 ≤ "+TH.red+" 個月";
+  document.getElementById("lab-f-amber").textContent="超過 "+TH.red+" 個月且剩 ≤ "+TH.amber+" 個月";
+  document.getElementById("lab-f-green").textContent="超過 "+TH.amber+" 個月且剩 ≤ "+TH.green+" 個月";
+}
+
+/* 從輸入框讀取門檻、做基本檢查、重畫 */
+function applyThreshold(){
+  var r=parseInt(document.getElementById("th-red").value,10);
+  var a=parseInt(document.getElementById("th-amber").value,10);
+  var g=parseInt(document.getElementById("th-green").value,10);
+  if(isNaN(r)||r<0) r=TH.red; if(isNaN(a)||a<0) a=TH.amber; if(isNaN(g)||g<0) g=TH.green;
+  TH.red=r; TH.amber=a; TH.green=g;
+  updateLabels(); renderSoon(); render();
+}
+
+/* 匯出 Excel；scope:"filtered" 用目前畫面條件，"all" 用全部 */
+function exportExcel(scope){
+  var data=window.__DATA__;
+  var rowsOut=[];
+  var q=document.getElementById("q").value.trim().toLowerCase();
+  var fw=document.getElementById("wh").value;
+  var fl=document.getElementById("lv").value;
+  data.forEach(function(r){
+    var lv=level(r);
+    if(scope==="filtered"){
+      if(q && (r.code+r.name+(r.spec||"")+(r.lot||"")).toLowerCase().indexOf(q)<0) return;
+      if(fw && r.wh!==fw) return;
+      if(fl && lv!==fl) return;
+    }
+    var statusLabel = lv==="none"?"無效期":remainText(r);
+    rowsOut.push({
+      "品號":r.code, "品名":r.name, "規格":r.spec||"", "倉別":r.wh,
+      "主儲位":r.loc1||"", "副儲位":r.loc2||"", "批號":r.lot||"",
+      "數量":r.qty, "到期日":hasExp(r)?r.exp:"", "剩餘 / 狀態":statusLabel
+    });
+  });
+  if(!rowsOut.length){ alert("沒有可匯出的資料。"); return; }
+  var ws=XLSX.utils.json_to_sheet(rowsOut, {header:["品號","品名","規格","倉別","主儲位","副儲位","批號","數量","到期日","剩餘 / 狀態"]});
+  ws["!cols"]=[{wch:12},{wch:24},{wch:16},{wch:16},{wch:12},{wch:12},{wch:12},{wch:8},{wch:12},{wch:20}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "庫存效期");
+  var d=today;
+  var fname="庫存效期_"+(scope==="all"?"全部":"目前結果")+"_"+d.getFullYear()+(""+(d.getMonth()+1)).padStart(2,"0")+(""+d.getDate()).padStart(2,"0")+".xlsx";
+  XLSX.writeFile(wb, fname);
+}
+
 function boot(data){
   window.__DATA__ = data;
   var whSel=document.getElementById("wh");
@@ -225,14 +344,19 @@ function boot(data){
   document.getElementById("f-red").addEventListener("change",renderSoon);
   document.getElementById("f-amber").addEventListener("change",renderSoon);
   document.getElementById("f-green").addEventListener("change",renderSoon);
-  renderSoon(); render();
-}
-
-function overdueText(d){
-  var n=Math.abs(d);
-  var y=Math.floor(n/365), rem=n%365;
-  if(y>0) return "已過期 "+y+" 年又 "+rem+" 天";
-  return "已過期 "+n+" 天";
+  document.getElementById("th-red").addEventListener("change",applyThreshold);
+  document.getElementById("th-amber").addEventListener("change",applyThreshold);
+  document.getElementById("th-green").addEventListener("change",applyThreshold);
+  document.getElementById("th-reset").addEventListener("click",function(){
+    TH.red=TH_DEFAULT.red; TH.amber=TH_DEFAULT.amber; TH.green=TH_DEFAULT.green;
+    document.getElementById("th-red").value=TH.red;
+    document.getElementById("th-amber").value=TH.amber;
+    document.getElementById("th-green").value=TH.green;
+    applyThreshold();
+  });
+  document.getElementById("exp-filtered").addEventListener("click",function(){exportExcel("filtered");});
+  document.getElementById("exp-all").addEventListener("click",function(){exportExcel("all");});
+  updateLabels(); renderSoon(); render();
 }
 
 function renderSoon(){
@@ -244,11 +368,11 @@ function renderSoon(){
   if(!fOver && !fRed && !fAmber && !fGreen){ soon.innerHTML='<p style="margin:0;font-size:13px;color:#A32D2D;">請至少勾選一個範圍。</p>'; return; }
 
   function inRange(r){
-    if(r.d<0) return fOver;                 // 已過期
-    if(r.m<=1) return fRed;                 // 未過期且剩≤1個月
-    if(r.m<=3) return fAmber;               // 超過1個月且剩≤3個月
-    if(r.m<=6) return fGreen;               // 超過3個月且剩≤6個月
-    return false;                           // 超過6個月不列入
+    if(r.d<0) return fOver;                  // 已過期
+    if(r.m<=TH.red) return fRed;             // 未過期且剩≤紅燈門檻
+    if(r.m<=TH.amber) return fAmber;         // 超過紅燈且剩≤黃燈門檻
+    if(r.m<=TH.green) return fGreen;         // 超過黃燈且剩≤綠燈門檻
+    return false;                            // 超過綠燈門檻不列入
   }
 
   var list=data.filter(hasExp).map(function(r){return Object.assign({},r,{m:monthsLeft(r.exp),d:daysLeft(r.exp)});})
@@ -265,7 +389,7 @@ function renderSoon(){
     +'<th style="font-weight:500;padding:5px 6px;text-align:right;">狀態</th></tr>';
   list.forEach(function(it){
     var tx=it.m<=1?"var(--red-tx)":(it.m<=3?"var(--amber-tx)":"var(--green-tx)");
-    var dtxt = it.d<0 ? overdueText(it.d) : ("剩 "+it.d+" 天");
+    var dtxt = remainText(it);
     h+='<tr class="soon-row">'
       +'<td data-label="品號" class="mono" style="color:#712B13;padding:7px 6px;">'+it.code+'</td>'
       +'<td data-label="品名" style="color:#4A1B0C;padding:7px 6px;">'+it.name+'<span style="color:#993C1D;font-size:12px;">　'+(it.spec||"")+'</span></td>'
@@ -301,23 +425,57 @@ function render(){
   document.getElementById("m-green").textContent=counts.green;
   var keys=Object.keys(groups);
   if(!keys.length){ rows.innerHTML='<p class="empty">沒有符合條件的品項。</p>'; return; }
+
+  function arrow(key){ return SORT.key===key ? '<span class="arr">'+(SORT.asc?"▲":"▼")+'</span>' : ''; }
+  function sortItems(items){
+    var k=SORT.key;
+    if(!k) return items.sort(function(a,b){
+      var ax=hasExp(a)?monthsLeft(a.exp):Infinity, bx=hasExp(b)?monthsLeft(b.exp):Infinity; return ax-bx;
+    });
+    return items.sort(function(a,b){
+      var av, bv;
+      if(k==="qty"){ av=a.qty; bv=b.qty; }
+      else if(k==="exp"){ av=hasExp(a)?new Date(a.exp).getTime():Infinity; bv=hasExp(b)?new Date(b.exp).getTime():Infinity; }
+      else { av=(a[k]||"").toString(); bv=(b[k]||"").toString(); return SORT.asc? av.localeCompare(bv): bv.localeCompare(av); }
+      return SORT.asc? av-bv : bv-av;
+    });
+  }
+
   keys.forEach(function(code){
     var g=groups[code], grpQty=g.items.reduce(function(s,it){return s+it.qty;},0);
     var card=document.createElement("div"); card.className="item-card";
     var head='<div class="item-head"><span><span class="item-name">'+g.name+'</span><span class="item-spec">'+g.spec+'</span></span>'
       +'<span class="item-meta">'+code+'　·　小計 '+grpQty.toLocaleString()+'</span></div>';
-    var body='<table><tr><th>批號</th><th>倉別</th><th>儲位（主/副）</th><th style="text-align:right;">數量</th><th>效期</th><th style="text-align:center;">狀態</th></tr>';
-    g.items.sort(function(a,b){
-      var ax=hasExp(a)?monthsLeft(a.exp):Infinity, bx=hasExp(b)?monthsLeft(b.exp):Infinity;
-      return ax-bx;
-    }).forEach(function(it){
+    var body='<table><tr>'
+      +'<th class="sortable" data-sort="lot">批號'+arrow("lot")+'</th>'
+      +'<th class="sortable" data-sort="wh">倉別'+arrow("wh")+'</th>'
+      +'<th>儲位（主/副）</th>'
+      +'<th class="sortable" data-sort="qty" style="text-align:right;">數量'+arrow("qty")+'</th>'
+      +'<th class="sortable" data-sort="exp">效期'+arrow("exp")+'</th>'
+      +'<th style="text-align:center;">狀態 / 剩餘</th></tr>';
+    sortItems(g.items).forEach(function(it){
+      var statusCell;
+      if(it.lv==="none"){
+        statusCell='<span class="badge b-none">無效期</span>';
+      }else{
+        statusCell='<span class="badge b-'+it.lv+'">'+remainText(it)+'</span>';
+      }
       body+='<tr>'
         +'<td class="mono">'+lotText(it)+'</td><td>'+it.wh+'</td><td class="mono">'+locText(it)+'</td>'
         +'<td style="text-align:right;">'+it.qty.toLocaleString()+'</td><td>'+expText(it)+'</td>'
-        +'<td style="text-align:center;"><span class="badge b-'+it.lv+'">'+LABEL[it.lv]+'</span></td></tr>';
+        +'<td style="text-align:center;">'+statusCell+'</td></tr>';
     });
     card.innerHTML=head+body+'</table>';
     rows.appendChild(card);
+  });
+
+  // 綁定排序標題點擊
+  Array.prototype.forEach.call(document.querySelectorAll(".item-card th.sortable"), function(th){
+    th.addEventListener("click", function(){
+      var k=th.getAttribute("data-sort");
+      if(SORT.key===k){ SORT.asc=!SORT.asc; } else { SORT.key=k; SORT.asc=true; }
+      render();
+    });
   });
 }
 
